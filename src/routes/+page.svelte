@@ -15,9 +15,10 @@
     let originalImageFile = $state<File | null>(null);
     let originalImageData = $state<ImageData | null>(null);
     let originalImageUrl = $state<string>("");
-    const isUploaded = $derived(
-        originalImageFileList && originalImageFileList.length !== null,
-    );
+    const isUploaded = $derived(originalImageFileList?.length !== 0);
+
+    $inspect(originalImageFileList);
+    $inspect(isUploaded);
 
     $effect(() => {
         if (
@@ -132,8 +133,6 @@
     }
 </script>
 
-{@debug palette, originalImageFile}
-
 <div class="relative flex flex-col items-center justify-center min-h-screen p-4">
   <header class="flex items-center text-center mb-4 gap-4">
     <ThemeToggleButton class="absolute left-10" />
@@ -213,7 +212,8 @@
           <Badge class="absolute left-1 bottom-1 opacity-20 hover:opacity-60">
             {pixelizedImageData.width} X {pixelizedImageData.height}
           </Badge>
-          <Button class="absolute right-1 bottom-1 hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
+          <Button class="absolute right-1 bottom-1 size-9
+                         hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
                   onclick={handleDownload}
           >
             <DownloadIcon />
