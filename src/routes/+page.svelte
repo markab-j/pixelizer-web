@@ -1,15 +1,20 @@
 <script lang="ts">
-    import { PaletteExtractor, Pixelizer, type RGB } from "@markab-j/pixelizer";
+    import { PaletteExtractor, type RGB } from "@markab-j/pixelizer";
     import {
         DownloadIcon,
         ImageOffIcon,
         PaletteIcon,
         Trash2Icon,
+        LoaderCircleIcon,
     } from "@lucide/svelte";
     import Button from "$lib/components/button.svelte";
     import Badge from '$lib/components/badge.svelte';
     import ThemeToggleButton from "$lib/components/theme-toggle-button.svelte";
     import { getImageDataFromObjectURL } from "$lib/utils";
+    import PixelizeWorker from '$lib/worker/pixelize-worker?worker';
+    import { onMount } from 'svelte';
+
+    let pixelizeWorker = $state<Worker>();
 
     let originalImageFileList = $state<FileList>();
     let originalImageFile = $state<File | null>(null);
@@ -60,13 +65,20 @@
     let pixelSize = $state(16);
     let pixelizedCanvas = $state<HTMLCanvasElement | null>(null);
 
-    const pixelizer = new Pixelizer();
+    let isLoading = $state<boolean>(false);
 
     async function handlePixelize() {
-        if (originalImageData) {
-            pixelizedImageData = pixelizer.pixelate(originalImageData, pixelSize);
-            if (palette.length !== 0)
-                pixelizedImageData = pixelizer.applyPalette(pixelizedImageData, palette);
+        pixelizedImageData = null;
+
+        if (originalImageData && pixelizeWorker && !isLoading) {
+          isLoading = true;
+          const data = {
+              imageData: originalImageData,
+              pixelSize,
+              palette: $state.snapshot(palette),
+          };
+
+          pixelizeWorker.postMessage(data);
         }
     }
 
@@ -131,6 +143,21 @@
                 }
             }, "image/png");
     }
+
+    onMount(() => {
+        pixelizeWorker = new PixelizeWorker();
+
+        pixelizeWorker.onmessage = (event: MessageEvent<ImageData>) => {
+            pixelizedImageData = event.data;
+            isLoading = false;
+        };
+
+        return () => {
+            pixelizeWorker?.terminate();
+        };
+    });
+
+    $inspect(isLoading);
 </script>
 
 <div class="relative flex flex-col items-center justify-center min-h-screen p-4">
@@ -189,7 +216,7 @@
         </Badge>
         <Button class="h-9 px-4 py-2 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
                 onclick={handlePixelize}
-                disabled={!isUploaded}
+                disabled={!isUploaded || isLoading}
         >
           변환
         </Button>
@@ -203,9 +230,13 @@
                   image-rendering: -moz-crisp-edges;
                   image-rendering: crisp-edges;"
           ></canvas>
-        {:else}
+        {:else if !isLoading}
           <div class="text-center p-4">
             <ImageOffIcon class="mx-auto size-12 text-muted-foreground" />
+          </div>
+        {:else if isLoading}
+          <div class="text-center p-4">
+            <LoaderCircleIcon class="mx-auto size-12 text-muted-foreground animate-spin" />
           </div>
         {/if}
         {#if pixelizedImageData}
